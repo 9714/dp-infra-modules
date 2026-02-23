@@ -1,0 +1,22 @@
+---
+description: 本リポジトリはモジュールのため mock_unit_test のみ実施する
+globs: "**/*.tftest.hcl, **/tests/**"
+alwaysApply: true
+---
+
+# Terraform テスト方針
+
+本リポジトリは**モジュール**であるため、テストは**最低限**にとどめる。
+
+## 許容するテスト
+
+- **mock_unit_test.tftest.hcl** のみ
+- mock_provider + plan mode
+- 対象: モジュールの契約（命名規則、設定値、バリデーション、出力）
+
+## 実施しないこと
+
+- Integration test（apply mode、実リソース作成）
+- 複数のテストファイルによる網羅的カバレッジ
+
+参照: README.md

@@ -1,0 +1,25 @@
+---
+description: Terraformの記述・リファクタ・テスト時には必ず該当するagent skillを利用する
+globs: "**/*.tf, **/*.tftest.hcl, **/*.tfvars"
+alwaysApply: true
+---
+
+# Terraform 作業時の Agent Skills 利用
+
+Terraform の記述、リファクタリング、テストを行う際は、**必ず該当する agent skill を読み、その指示に従うこと**。
+
+## Skill と用途の対応
+
+| 用途 | Skill | パス |
+|------|-------|------|
+| **記述・レビュー** | terraform-style-guide | `.cursor/.agents/skills/terraform-style-guide/SKILL.md` |
+| **リファクタ** | refactor-module | `.cursor/.agents/skills/refactor-module/SKILL.md` |
+| **テスト** | terraform-test | `.cursor/.agents/skills/terraform-test/SKILL.md` |
+
+## 利用ルール
+
+1. **`.tf` の新規作成・編集・レビュー** → `terraform-style-guide` を読んで HashiCorp のスタイル規約に従う
+2. **モジュールへの分割・構造改善** → `refactor-module` を読んで設計原則に従う
+3. **`.tftest.hcl` の作成・テスト実行・アサーション** → `terraform-test` を読んでテストパターンに従う
+
+該当タスクの開始時に、まず対応する skill を Read で取得し、内容に沿って作業する。
