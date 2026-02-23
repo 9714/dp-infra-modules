@@ -43,7 +43,7 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Format Check
-        run: terraform fmt -check -recursive -diff ${{ matrix.module }}
+        run: terraform fmt -check -recursive -diff ${{ matrix.module }} tests/
 
       - name: Terraform Init & Validate
         run: |
