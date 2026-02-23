@@ -9,9 +9,29 @@ on:
     branches: [main]
 
 jobs:
-  validate:
-    name: fmt & validate
+  # modules/*/ を動的に検出して matrix の入力を生成する
+  setup:
+    name: detect modules
     runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.list.outputs.modules }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: List modules
+        id: list
+        run: |
+          modules=$(find modules -mindepth 1 -maxdepth 1 -type d | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "modules=${modules}" >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: fmt & validate / ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      matrix:
+        module: ${{ fromJson(needs.setup.outputs.modules) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,24 +43,22 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Format Check
-        run: terraform fmt -check -recursive -diff
+        run: terraform fmt -check -recursive -diff ${{ matrix.module }}
 
-      - name: Terraform Init & Validate (modules)
+      - name: Terraform Init & Validate
         run: |
-          for dir in modules/*/; do
-            if [ -f "${dir}main.tf" ]; then
-              echo "Validating $dir"
-              terraform -chdir="$dir" init -backend=false -input=false
-              terraform -chdir="$dir" validate
-            fi
-          done
+          terraform -chdir="${{ matrix.module }}" init -backend=false -input=false
+          terraform -chdir="${{ matrix.module }}" validate
 
   # mock_provider を使ったユニットテスト（GCP認証不要）
-  # tests/mock_unit_test.tftest.hcl を持つモジュールで実行
+  # tests/shared_mock_unit_test.tftest.hcl を各モジュールにコピーして実行
   test-mock:
-    name: unit test (mock)
+    name: unit test (mock) / ${{ matrix.module }}
     runs-on: ubuntu-latest
-    needs: validate
+    needs: [setup, validate]
+    strategy:
+      matrix:
+        module: ${{ fromJson(needs.setup.outputs.modules) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,12 +69,9 @@ jobs:
           terraform_version: "1.9"
           terraform_wrapper: false
 
-      - name: Run mock unit tests
+      - name: Run mock unit test
         run: |
-          for dir in modules/*/; do
-            if [ -f "${dir}tests/mock_unit_test.tftest.hcl" ]; then
-              echo "Testing $dir"
-              terraform -chdir="$dir" init -backend=false -input=false
-              terraform -chdir="$dir" test -verbose
-            fi
-          done
+          mkdir -p "${{ matrix.module }}/tests"
+          cp tests/shared_mock_unit_test.tftest.hcl "${{ matrix.module }}/tests/mock_unit_test.tftest.hcl"
+          terraform -chdir="${{ matrix.module }}" init -backend=false -input=false
+          terraform -chdir="${{ matrix.module }}" test -verbose

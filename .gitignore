@@ -5,6 +5,9 @@
 *.tfvars
 !*.tfvars.example
 
+# CI が生成する共通テストのコピー（tests/shared_mock_unit_test.tftest.hcl から生成）
+modules/*/tests/
+
 # IDE / OS
 .idea/
 .vscode/
