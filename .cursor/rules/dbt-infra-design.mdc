@@ -1,0 +1,52 @@
+---
+description: dbt-infra-modules の設計概要・責務・モジュール構成に関する指針
+alwaysApply: true
+---
+
+# dbt-infra-modules 設計指針
+
+このリポジトリは**社内共通の Terraform モジュールライブラリ**であり、複数案件で再利用される。
+案件リポジトリ（`{client}-infra`, `{client}-dbt`, `{client}-pipeline`）から **Git URL + `?ref=タグ`** で参照される。
+`docker/dbt/Dockerfile` はこのリポジトリでは管理しない（別リポジトリで管理）。
+
+## 設計原則
+
+1. **汎用性**: 案件固有の値は変数で注入し、モジュール内にハードコードしない
+2. **責務分離**: リソースの定義場所は「誰が変更するか」「何で更新されるか」で決める
+3. **バージョン管理**: 安定化後にセマンティックバージョンでタグを切り、案件は `?ref=` で必要なバージョンを指定する
+
+## モジュール一覧と設計方針
+
+### artifact_registry（呼び出し元: `{client}-infra`）
+
+- AR リポジトリは「箱」の作成であり、アプリケーションコードと独立している
+- Cloud Run Jobs がイメージを push/pull するより前に存在する必要があるため infra で管理する
+
+### service_accounts（呼び出し元: `{client}-infra`）
+
+- dbt / Cloud Run Jobs / Workflows の 3 SA を作成し、email を output するだけ
+- **IAM はモジュールに含めない**: 権限付与は GCS バケット名・AR リポジトリ名など案件固有のリソースに依存するため、呼び出し側で `google_project_iam_member` を定義する
+
+### bigquery（呼び出し元: `{client}-dbt`）
+
+- データセット定義は `dbt_project.yml` のスキーマと対応するため、dbt リポジトリで一元管理する
+- `dbt_sa_email`（infra の remote state から取得）を受け取り、データセットへの権限付与まで担う設計にする
+
+### bigquery_iam（呼び出し元: `{client}-dbt`）
+
+- BIツール等の参照権限は dbt 開発者が管理する
+- モデル構成の変更と同じリポジトリ・同じ PR で完結させる
+
+### cloud_run_job（呼び出し元: `{client}-pipeline`）
+
+- タスク追加・変更はこのリポジトリだけで完結させる
+- **1 Job = 1 モジュール呼び出し**: dbt Job・GCS ローダー Job・BQ ローダー Job はそれぞれ別の呼び出しとして定義する
+- コンテナイメージ URL・SA・`task_count` はすべて変数で受け取る
+- dbt Job は Workflows からの args オーバーライドで使い回す設計のため、Job 定義は 1 つで十分
+
+### workflow（呼び出し元: `{client}-pipeline`）
+
+- Cloud Scheduler と Workflows は常にセットで変わるため、**Scheduler・IAM（Scheduler → Workflows 起動権限）をモジュールに含める**
+- Workflow の YAML ファイルパス・cron 式・タイムゾーンは変数で受け取る
+
+モジュール追加・変更時は、各案件リポジトリの責務（infra/dbt/pipeline）を維持できるように設計すること。
