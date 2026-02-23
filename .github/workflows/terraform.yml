@@ -1,10 +1,6 @@
 name: Terraform
 
 on:
-  # feature-* ブランチのpush時（PR作成前の早期チェック）
-  push:
-    branches: ['feature-*']
-  # mainへのPR作成・更新時（マージ前のゲート）
   pull_request:
     branches: [main]
 
@@ -12,6 +8,7 @@ jobs:
   # modules/*/ を動的に検出して matrix の入力を生成する
   setup:
     name: detect modules
+    if: startsWith(github.head_ref, 'feature-')
     runs-on: ubuntu-latest
     outputs:
       modules: ${{ steps.list.outputs.modules }}
